@@ -1,0 +1,281 @@
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#### Setting working directory
+```{r}
+setwd("...")
+```
+
+#### Loading the Libraries
+``` {r Pre-Questions, echo=FALSE, message=FALSE}
+library(ggplot2)
+library(caret)
+library(tidyverse)
+library(caTools)
+library(glmnet)
+```
+
+***
+
+## Question 1
+
+*Is it wise to use FDR as a selection tool for building good sets of candidate models? If not, then why? What kind of p-values do we get? Describe a scenario where using FDR would not yield good results.*
+
+FDR is the expected proportion of Type I error.FDR controls for a low proprotion of false positives instead guarding against making any false positive conclusions. But FDR is not an ideal or wise selection tool for choosing variables in a model. The reason being is FDR theory requires independence between tests, which in practical case is very hard to hold. Another reason is multicollinearity problems in regression. Normally multicollinearity exists in regression due to which we will have high p values and insignificant variables.This will create a confusion on which variables to choose. SO in such a scenario we cannot use FDR control as a good way of choosing variables.
+
+***
+
+## Question 2
+
+*You are given a significant heterogeneous dataset.*/
+*How would you choose a sample subset of this dataset to train a model on it?*
+
+*I.How would you choose a sample subset of this dataset to train a model on it?*
+  
+Train data is used to train and make the model learn the hidden features/patterns in the data./
+When the same training data is fed to the model,the model continues to learn the features of the data./
+The training set should have a diversified set of inputs so that the model is trained in all scenarios and can predict any unseen data sample that may appear in the future.
+
+The aim is to have the train data with the same distribution as the test.Repeated training will lead to the observed variation in the proportions to be attenuated and is preferable as the training happens in more practical conditions and allow for sampling variation more explicitly.
+
+Since the number of parameters are also more, there is a greater chance of the variation and distribution being accurately captured.Hence the subset can be chosen on the 80 20 ratio or the conventional 70 30 ratio.
+
+*II.For this assignment, split the data into test and training sets randomly such that only 15% of the records are in the training set. Then fit a simple linear regression model to predict the overall score of a player and test your model against the test set.*
+
+```{r}
+ICB.Data <- read.csv("Intra College Basketball.csv")
+ICB.Data <- subset(ICB.Data, select = -c(pick))
+ICB.Data <- ICB.Data[complete.cases(ICB.Data$pts),]
+ICB.Data <- ICB.Data[,colSums(is.na(ICB.Data)) == 0]
+
+ICB.Data$Player<-as.factor(ICB.Data$Player)
+ICB.Data$Team<-as.factor(ICB.Data$Team)
+ICB.Data$Conference<-as.factor(ICB.Data$Conference)
+ICB.Data$yr<-as.factor(ICB.Data$yr)
+ICB.Data$ht<-as.factor(ICB.Data$ht)
+ICB.Data$num<-as.factor(ICB.Data$num)
+ICB.Data$Role<-as.factor(ICB.Data$Role)
+ICB.Data <- subset(ICB.Data, select = -c(Player, Team, Conference, yr, ht, year, num, Role))
+
+set.seed(3456)
+
+training_ind <- createDataPartition(ICB.Data$pts, p = 0.15, list = FALSE)
+
+train_data <- ICB.Data[training_ind, ]
+test_data <- ICB.Data[-training_ind, ]
+
+train_X <- subset(train_data, select = -c(pts))
+test_X <- subset(test_data, select = -c(pts))
+train_Y <- subset(train_data, select = c(pts))
+test_Y <- subset(test_data, select = c(pts))
+
+# Linear Regression
+modellm <- lm(formula = pts ~ ., data = train_data)
+y_pred1 <- predict(modellm, newdata = test_X)
+summary(modellm)
+```
+
+Model is :
+$Estimated\ Wins =  -3.498e-01 -1.261e-01(Games.Played) -2.259e-02(Minutes..)+...$
+
+*III.Calculate the R^2 for the predictions you made on the test set. *
+```{r}
+#Measure rsq for test data. Verify formula
+res1 <- caret::postResample(test_Y, y_pred1)
+r_square <- res1[2]
+
+#R square values
+r_square
+
+rss1 <- sum((y_pred1 - test_Y$pts) ^ 2)
+tss1 <- sum((test_Y$pts - mean(test_Y$pts)) ^ 2)
+rsq1 <- 1 - rss1/tss1
+
+rsq_full<-rsq1
+rsq_full
+
+```
+  
+*III.How many features were used in this model?*
+
+33 features were used in the model
+
+
+## Question 3
+
+*What are stepwise forward regression procedures? How are they better than adopting null or full models?*
+
+Forward selection is a type of stepwise regression which begins with a null model and adds in variables one by one. The intuition is we add a variable that gives the single best improvement to the model.As the model continues to improve (per that same criteria) we continue the process, adding in one variable at a time and testing at each step. Once the model no longer improves with adding more variables, the process stops. Its always better to adopt these techniques because the full model is very expensive to maintain and tough to fit due to large number of variables in real life problems. Where as a null model is a closed form with only the intercept which cannot give significant insights to solve the data problem. Also the full model is overfit and can change drastically and null model will always be the same when we shuffle the data.
+
+Now using the same training and test sets, fit a simple regression model but with 5-fold cross-validation and predict the overall scores of players in the test set. Calculate R^2 for the predictions and compare with the R^2 from question 2. Please explain your observation, the difference in R^2 values, its implications. Also, explain briefly what the problems are associated with the cross-validation approach.
+
+### Splitting Data into train and test set. 15% for training and 85% for testing
+```{r}
+set.seed(123)                              
+split1<- sample(c(rep(0, 0.15 * nrow(ICB.Data)), rep(1, 0.85 * nrow(ICB.Data))))
+split1
+
+table(split1)
+
+train <- ICB.Data[split1 == 0, ]
+test <- ICB.Data[split1== 1, ]
+
+train_X <- subset(train, select = -c(pts))
+test_X <- subset(test, select = -c(pts))
+
+train_Y <- subset(train, select = c(pts))
+test_Y <- subset(test, select = c(pts))
+
+## Using stepwise forward selection we are chosing the final model
+
+#define intercept-only model
+intercept_only <- lm(pts ~ 1, data=train)
+
+#define model with all predictors
+all <- lm(pts ~ ., data=train)
+
+#perform forward stepwise regression
+forward <- step(intercept_only, direction='forward', scope=formula(all), trace=0)
+
+#view results of forward stepwise regression
+forward$anova
+
+#view final model
+forward$coefficients
+
+model_final<-lm(pts ~ mp  + porpag + Usage + FTM + Games.Played + ast + TPM 
+                       + twoPM + Minutes.. + X.Offensive.rebound....ORB_per+ stl_per + oreb+ stl 
+                        + twoP_per + TO_per  + pfr  + FT_per + adjoe  + Effective.field.goal..  
+                          + ftr  + TP_per  + TPA  + blk, data= train)
+summary(model_final)
+
+y_predict<-predict(model_final,newdata = test)
+
+## Now trying 5 fold cross-validation on the chosen model
+# defining training control as cross-validation and 
+#value of K equal to 5
+
+library(caret)
+
+train_control <- trainControl(method = "cv",
+                              number = 5)
+
+# training the model by assigning pts column
+# as target variable and rest other column
+# as independent variable
+model_final_cv <- train(pts ~ mp  + porpag + Usage + FTM + Games.Played + ast + TPM 
+                        + twoPM + Minutes.. + X.Offensive.rebound....ORB_per+ stl_per + oreb+ stl 
+                        + twoP_per + TO_per  + pfr  + FT_per + adjoe  + Effective.field.goal..  
+                        + ftr  + TP_per  + TPA  + blk, data = train,
+                 method = "lm",
+                 trControl = train_control)
+
+summary(model_final_cv)
+print(model_final_cv)
+
+y_predict_cv<-predict(model_final_cv,newdata = test)
+
+rss <- sum((test_Y$pts - y_predict_cv ) ^ 2)
+tss <- sum((test_Y$pts - mean(test_Y$pts)) ^ 2)
+rsq <- 1 - rss/tss
+
+rsq_step_cv<-rsq
+## So out of sample R squared is 0.9560.
+```
+
+On comparing OOS r squared from models in q2 and q3, we find that there is not much difference the Cv has made in this data.The OOS r squared in simple linear model is 0.9588 and the oos rsq feom stepwise model using cv is 0.9560. the difference is very minute. one reason for this could be in this exercise we used just 15% of the sample for training and on applying cross validation of 5 fold to that one fold contains hardly 434, so CV sampling doesnt make a big difference. Also the oos r square sligtly reduced from model in q2 to model in q3 because the models are different and the initial model is slightly better than that of the stepwise regression model.
+
+***
+
+## Question 4
+
+*What is Lasso Regression?*
+
+Regularization is a technique to overcome overfitting in a model.LASSO is the Least Absolute Shrinkage and Selection Operator. It is a statistical formula for the regularization of data models and feature selection.It uses L1 regularization technique. Shrinkage is where data values are shrunk towards a central point as the mean. The lasso procedure encourages simple, sparse models . 
+
+*What are the benefits of using Lasso Regression?*
+
+This particular type of regression is well-suited for models showing high levels of multicollinearity or to automate certain parts of model selection, like variable selection/parameter elimination.It makes coefficients to absolute zero and hence results in accurate prediction.
+
+*What are some of the problems associated with it?*
+
+It causes problems when there are more predictors than the number of observations.\
+LASSO selects at most n variables before it saturates. \
+LASSO is not helpful in group selection. \
+In case of correlated parameters where pairwise correlations are very high, then  LASSO arbitrarily select only one variable from the group.\
+It violates the hierarchy principle sometimes.\
+
+***
+
+## Question 5
+
+*Using the training data from question 2, fit a Lasso regression to predict the overall scores of players in the test set. Use the default value of alpha (alpha used to tune the penalty parameter), which is usually 1.*
+
+```{r}
+set.seed(3456)
+
+training_ind <- createDataPartition(ICB.Data$pts, p = 0.15, list = FALSE)
+
+train_data <- ICB.Data[training_ind, ]
+test_data <- ICB.Data[-training_ind, ]
+
+train_X <- subset(train_data, select = -c(pts))
+test_X <- subset(test_data, select = -c(pts))
+train_Y <- subset(train_data, select = c(pts))
+test_Y <- subset(test_data, select = c(pts))
+
+train_x_mat <- as.matrix(sapply(train_X, as.numeric))
+test_x_mat <- as.matrix(sapply(test_X, as.numeric))
+train_y_mat <- as.matrix(sapply(train_Y, as.numeric))
+test_y_mat <- as.matrix(sapply(test_Y, as.numeric))
+
+model.Lasso.cv <- cv.glmnet(train_x_mat, train_y_mat, alpha = 1)
+
+# optimal lambda
+lambda.Optimal <-  model.Lasso.cv$lambda.min
+
+modelLasso <- glmnet(train_x_mat, train_y_mat, alpha = 1, lambda = lambda.Optimal)
+
+y_pred_lasso <- predict(modelLasso, test_x_mat)
+
+summary(modelLasso$beta)
+
+res <- caret::postResample(test_y_mat, y_pred_lasso)
+r_square_lasso <- res[2]
+
+rss <- sum((y_pred_lasso - test_Y$pts) ^ 2)
+tss <- sum((test_Y$pts - mean(test_Y$pts)) ^ 2)
+(rsq_lasso <- 1 - rss/tss)
+```
+### The lambda value that minimizes the test MSE = $0.01053411$
+
+*Use cross-validation to obtain the optimal value of lambda for the above lasso regression. Also, explain your observation.*
+```{r}
+coef.cv <- coef(modelLasso)
+
+## plot them together
+par(mfrow=c(1,2))
+plot(model.Lasso.cv)
+plot(model.Lasso.cv$glmnet.fit, xvar='lambda', label='T') ## cv.glmnet has included a glmnet.fit object into cv.nhlreg
+
+model.Lasso.cv$lambda.min
+coef(model.Lasso.cv, s = "lambda.min") 
+ 
+model.Lasso.cv$lambda.1se 
+coef(model.Lasso.cv, s = "lambda.1se")
+
+log(model.Lasso.cv$lambda.min)
+log(model.Lasso.cv$lambda.1se)
+```
+
+### OOS R squared from all the models
+```{r}
+oos_rsq <- rbind(rsq_full,rsq_step_cv,rsq_lasso)
+
+oos_rsq
+
+```
+
