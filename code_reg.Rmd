@@ -20,20 +20,14 @@ library(glmnet)
 
 ***
 
-## Question 1
 
-*Is it wise to use FDR as a selection tool for building good sets of candidate models? If not, then why? What kind of p-values do we get? Describe a scenario where using FDR would not yield good results.*
+
 
 FDR is the expected proportion of Type I error.FDR controls for a low proprotion of false positives instead guarding against making any false positive conclusions. But FDR is not an ideal or wise selection tool for choosing variables in a model. The reason being is FDR theory requires independence between tests, which in practical case is very hard to hold. Another reason is multicollinearity problems in regression. Normally multicollinearity exists in regression due to which we will have high p values and insignificant variables.This will create a confusion on which variables to choose. SO in such a scenario we cannot use FDR control as a good way of choosing variables.
 
 ***
 
-## Question 2
 
-*You are given a significant heterogeneous dataset.*/
-*How would you choose a sample subset of this dataset to train a model on it?*
-
-*I.How would you choose a sample subset of this dataset to train a model on it?*
   
 Train data is used to train and make the model learn the hidden features/patterns in the data./
 When the same training data is fed to the model,the model continues to learn the features of the data./
@@ -43,7 +37,6 @@ The aim is to have the train data with the same distribution as the test.Repeate
 
 Since the number of parameters are also more, there is a greater chance of the variation and distribution being accurately captured.Hence the subset can be chosen on the 80 20 ratio or the conventional 70 30 ratio.
 
-*II.For this assignment, split the data into test and training sets randomly such that only 15% of the records are in the training set. Then fit a simple linear regression model to predict the overall score of a player and test your model against the test set.*
 
 ```{r}
 ICB.Data <- read.csv("Intra College Basketball.csv")
@@ -104,9 +97,6 @@ rsq_full
 33 features were used in the model
 
 
-## Question 3
-
-*What are stepwise forward regression procedures? How are they better than adopting null or full models?*
 
 Forward selection is a type of stepwise regression which begins with a null model and adds in variables one by one. The intuition is we add a variable that gives the single best improvement to the model.As the model continues to improve (per that same criteria) we continue the process, adding in one variable at a time and testing at each step. Once the model no longer improves with adding more variables, the process stops. Its always better to adopt these techniques because the full model is very expensive to maintain and tough to fit due to large number of variables in real life problems. Where as a null model is a closed form with only the intercept which cannot give significant insights to solve the data problem. Also the full model is overfit and can change drastically and null model will always be the same when we shuffle the data.
 
@@ -190,17 +180,14 @@ On comparing OOS r squared from models in q2 and q3, we find that there is not m
 
 ***
 
-## Question 4
-
-*What is Lasso Regression?*
 
 Regularization is a technique to overcome overfitting in a model.LASSO is the Least Absolute Shrinkage and Selection Operator. It is a statistical formula for the regularization of data models and feature selection.It uses L1 regularization technique. Shrinkage is where data values are shrunk towards a central point as the mean. The lasso procedure encourages simple, sparse models . 
 
-*What are the benefits of using Lasso Regression?*
+
 
 This particular type of regression is well-suited for models showing high levels of multicollinearity or to automate certain parts of model selection, like variable selection/parameter elimination.It makes coefficients to absolute zero and hence results in accurate prediction.
 
-*What are some of the problems associated with it?*
+
 
 It causes problems when there are more predictors than the number of observations.\
 LASSO selects at most n variables before it saturates. \
@@ -210,9 +197,6 @@ It violates the hierarchy principle sometimes.\
 
 ***
 
-## Question 5
-
-*Using the training data from question 2, fit a Lasso regression to predict the overall scores of players in the test set. Use the default value of alpha (alpha used to tune the penalty parameter), which is usually 1.*
 
 ```{r}
 set.seed(3456)
